@@ -4,17 +4,20 @@ def extclass(cls):
   return lambda f: (setattr(cls,f.__name__,f) or f)
 # ------------------------------------------------------------------------
 # Grammatical Forms (Classes)
+
 """
 BNF for our grammar
 expr ::=   Add(expr, expr)
        |   Access( iexpr*, texpr )
        |   Product(expr, expr)
-       |   SumR(iexpr, (int,int), texpr)
-       |   Gen( int*, iexpr*, expr )
+       |   SumR(iexpr, (str,str), expr)
 texpr ::=  Gen( int*, iexpr*, expr )
-       |   Tensor(tensor)
+       |   Tensor (tensorT, str)
 iexpr ::=  IndexConst(string)
         |  IAdd(iexpr, iexpr)
+scalarT ::= int | float 
+tensorT ::= (scalarT, str*)
+
 """
 
 class expr:
@@ -110,12 +113,8 @@ def visit(self, env_map):
   # assuming everything is 2D, 3D, or 4D
   index_exprs = self.values[0] 
   assert(len(index_exprs) == t.ndim), "expected length of index_exprs to match number of tensor dimensions"
-  if t.ndim == 2:
-    return t[index_exprs[0].visit(env_map), index_exprs[1].visit(env_map)]
-  if t.ndim == 3:
-    return t[index_exprs[0].visit(env_map), index_exprs[1].visit(env_map), index_exprs[2].visit(env_map)]
-  if t.ndim == 4:
-    return t[index_exprs[0].visit(env_map), index_exprs[1].visit(env_map), index_exprs[2].visit(env_map), index_exprs[3].visit(env_map)]
+  index_values = tuple([index_exprs[i].visit(env_map) for i in len(index_exprs)])
+  return t[index_values] 
 
 @extclass(Product)
 def visit(self, env_map):
@@ -265,11 +264,11 @@ def cstr(self, env_map):
         """
     else:
       child_loop_str = subcstr(lhs_index_exprs, dim_id+1, dim_sizes, rhs, env_map)
-      loop_str = f"""
-      for (int {loopvar} = 0; {loopvar} < {dim_size}; {loopvar}++) {
-        {child_loop_str}
-      }
-      """
+      loop_str = (f"" + 
+      f"for (int {loopvar} = 0; {loopvar} < {dim_size}; {loopvar}++) {{" +
+      f"{child_loop_str}" +
+      f"}}")
+     
     return loop_str
 
   return subcstr(lhs_index_exprs, 0, dim_sizes, rhs, env_map)
